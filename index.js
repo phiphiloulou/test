@@ -1,44 +1,74 @@
-const express = require("express");
+require("dotenv").config();
 
-const app = express();
-const PORT = process.env.PORT || 3000;
+const fs = require("fs/promises");
+const path = require("path");
+const { Dropbox } = require("dropbox");
 
-app.use(express.json());
+const INTERVAL = 2 * 60 * 1000; // 2 minutes
 
-// Health check
-app.get("/", (req, res) => {
-    res.json({
-        status: "ok",
-        message: "Express API is running"
-    });
+const dropbox = new Dropbox({
+    accessToken: process.env.DROPBOX_ACCESS_TOKEN
 });
 
-// GET web service
-app.get("/api/hello", (req, res) => {
-    const name = req.query.name || "World";
+async function getData() {
+    // TODO: récupérer tes données ici
 
-    res.json({
-        message: `Hello ${name}!`
-    });
-});
+    return {
+        timestamp: new Date().toISOString(),
+        data: [
+            {
+                id: 1,
+                name: "Test"
+            }
+        ]
+    };
+}
 
-// POST web service
-app.post("/api/users", (req, res) => {
-    const { name, email } = req.body;
+async function exportToDropbox() {
+    try {
+        console.log(`[${new Date().toISOString()}] Starting export...`);
 
-    if (!name || !email) {
-        return res.status(400).json({
-            error: "name and email are required"
+        const data = await getData();
+
+        const filename = `export-${Date.now()}.json`;
+        const localPath = path.join(__dirname, "data", filename);
+
+        await fs.mkdir(path.dirname(localPath), {
+            recursive: true
         });
+
+        await fs.writeFile(
+            localPath,
+            JSON.stringify(data),
+            "utf8"
+        );
+
+        console.log(`Created ${filename}`);
+
+        const file = await fs.readFile(localPath);
+
+        const dropboxPath = `${process.env.DROPBOX_FOLDER}/${filename}`;
+
+        await dropbox.filesUpload({
+            path: dropboxPath,
+            contents: file,
+            mode: {
+                ".tag": "add"
+            }
+        });
+
+        console.log(`Uploaded ${dropboxPath}`);
+
+        await fs.unlink(localPath);
+
+        console.log("Local file deleted");
+    } catch (error) {
+        console.error("Export failed:", error);
     }
+}
 
-    res.status(201).json({
-        id: Date.now(),
-        name,
-        email
-    });
-});
+// Exécuter immédiatement au démarrage
+exportToDropbox();
 
-app.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-});
+// Puis toutes les 2 minutes
+setInterval(exportToDropbox, INTERVAL);
