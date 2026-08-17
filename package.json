@@ -1,11 +1,14 @@
 {
-  "name": "express-api",
+  "name": "dropbox-worker",
   "version": "1.0.0",
+  "description": "Worker that periodically uploads JSON files to Dropbox",
+  "main": "index.js",
   "scripts": {
     "start": "node index.js",
     "dev": "node --watch index.js"
   },
   "dependencies": {
-    "express": "^5.1.0"
+    "dotenv": "^17.2.1",
+    "dropbox": "^10.34.0"
   }
 }
